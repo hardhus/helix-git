@@ -1,10 +1,10 @@
-;; Finding a file's git directory and noticing when HEAD may have moved,
-;; using only the filesystem (no git process).
+;; Finding a file's git directory and the commit HEAD points to, using only
+;; the filesystem (no git process).
 ;; SPDX-License-Identifier: MIT OR Apache-2.0
 
 (provide split-path
          find-git-dir
-         head-stamp)
+         head-commit)
 
 (define backslash (integer->char 92))
 
@@ -50,13 +50,45 @@
                (loop (car parent) (+ depth 1))
                #false))]))))
 
-(define (mtime path)
-  (with-handler (lambda (_) #false) (fs-metadata-modified (file-metadata path))))
+(define (read-text path)
+  (with-handler (lambda (_) #false)
+                (let* ([port (open-input-file path)]
+                       [text (read-port-to-string port)])
+                  (close-port port)
+                  text)))
 
-;; Changes whenever HEAD moves: a checkout rewrites HEAD, a commit, reset or
-;; rebase appends to the HEAD reflog, and nearly all of them write the index.
-;; While the stamp is unchanged, a cached HEAD blob id is still valid.
-(define (head-stamp git-dir)
-  (list (mtime (string-append git-dir "/HEAD"))
-        (mtime (string-append git-dir "/logs/HEAD"))
-        (mtime (string-append git-dir "/index"))))
+;; A linked worktree keeps its own HEAD but shares refs with the main
+;; repository, named in its `commondir` file.
+(define (common-dir git-dir)
+  (let ([text (read-text (string-append git-dir "/commondir"))])
+    (if text
+        (let ([dir (first-line text)])
+          (if (absolute? dir) dir (string-append git-dir "/" dir)))
+        git-dir)))
+
+;; "<oid> <ref>" lines of packed-refs; refs that were never updated since a
+;; `git gc` live only here.
+(define (packed-ref common ref)
+  (let ([text (read-text (string-append common "/packed-refs"))]
+        [suffix (string-append " " ref)])
+    (and text
+         (let loop ([lines (split-many text "\n")])
+           (cond
+             [(empty? lines) #false]
+             [(ends-with? (trim (car lines)) suffix) (car (split-many (trim (car lines)) " "))]
+             [else
+              (let ([rest (cdr lines)])
+                (loop rest))])))))
+
+;; The commit HEAD points to, or #false (unborn branch, unreadable repo).
+(define (head-commit git-dir)
+  (let ([head (read-text (string-append git-dir "/HEAD"))])
+    (and head
+         (let ([line (first-line head)])
+           (if (starts-with? line "ref:")
+               (let* ([ref (trim (substring line 4 (string-length line)))]
+                      [common (common-dir git-dir)]
+                      [direct (or (read-text (string-append git-dir "/" ref))
+                                  (read-text (string-append common "/" ref)))])
+                 (if direct (first-line direct) (packed-ref common ref)))
+               line)))))

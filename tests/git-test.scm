@@ -21,6 +21,9 @@
 (check "cached copy has content" (string-contains? base-text "package-name"))
 (check "second lookup hits the cache" (equal? (head-base dir "cog.scm") base))
 
+(check "blob id at an explicit rev" (equal? (blob-id dir "cog.scm" "HEAD") (blob-id dir "cog.scm")))
+(check "file missing in an older rev"
+       (equal? (blob-id dir "src/git.scm" "de5b801") (Err 'not-in-head)))
 (check "unknown file is not in HEAD" (equal? (head-base dir "no-such-file") (Err 'not-in-head)))
 
 (define unchanged (diff-against dir (Ok->value base) base-text))

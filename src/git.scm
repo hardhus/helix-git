@@ -53,10 +53,10 @@
     (write-string text port)
     (close-port port)))
 
-;; The blob id of `name` (a file name inside `dir`) in HEAD.
+;; The blob id of `name` (a file name inside `dir`) in `rev`, HEAD by default.
 ;; Returns (Ok oid), (Err 'not-in-head) or (Err message).
-(define (blob-id dir name)
-  (let ([oid (git-run dir (list "rev-parse" "--verify" "-q" (string-append "HEAD:./" name)))])
+(define (blob-id dir name [rev "HEAD"])
+  (let ([oid (git-run dir (list "rev-parse" "--verify" "-q" (string-append rev ":./" name)))])
     (cond
       [(Err? oid) oid]
       [(equal? (trim (Ok->value oid)) "") (Err 'not-in-head)]

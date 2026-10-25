@@ -2,6 +2,7 @@
 ;; SPDX-License-Identifier: MIT OR Apache-2.0
 
 (require "../src/repo.scm")
+(require "../src/git.scm")
 
 (define failures 0)
 
@@ -22,9 +23,12 @@
 (check "git dir from root" (find-git-dir root) (string-append root "/.git"))
 (check "git dir from subdir" (find-git-dir (string-append root "/src")) (string-append root "/.git"))
 
-(define stamp (head-stamp (find-git-dir root)))
-(check "stamp is stable" (head-stamp (find-git-dir root)) stamp)
-(check "stamp sees HEAD" (not (equal? (car stamp) #false)) #true)
+
+(define commit (head-commit (find-git-dir root)))
+(check "head commit is a full id" (and commit (= (string-length commit) 40)) #true)
+(check "head commit matches git"
+       commit
+       (trim (Ok->value (git-run root (list "rev-parse" "HEAD")))))
 
 (if (= failures 0)
     (displayln "ok")

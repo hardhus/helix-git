@@ -43,8 +43,9 @@ helix-git binds no keys. A suggestion for your `init.scm`, next to Helix's
 
 - Helix reads the gutter's diff base only when a file is opened or reloaded,
   so right after a commit the gutter can still show the old markers while
-  helix-git already compares with the new `HEAD`. `:reload` brings the gutter
-  up to date.
+  helix-git already compares with the new `HEAD`. When that happens to the file
+  you are looking at, the commands say so in the status line; `:reload` brings
+  the gutter up to date.
 - git runs only when you use a command. A cached `HEAD` version and diff are
   reused while neither the buffer nor `HEAD` changes, so repeating a command is
   free. HEAD versions are cached under your temp directory in `helix-git/`.
